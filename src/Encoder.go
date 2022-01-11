@@ -50,38 +50,38 @@ func (e Encoder) Encode(data interface{}) (error, []byte) {
 	pos := uint64(0)
 
 	// recursively go through all data types
-	err = recursivelyRunOver(data, func(data interface{}, dataType reflect.Kind) error {
+	err = recursivelyRunOver(reflect.ValueOf(data), func(value reflect.Value, dataType reflect.Kind) error {
 		switch dataType {
 		case reflect.Struct: // no encoding special encoding to do on start of structures
 			return nil
 		case reflect.Array: // on strings and arrays we need to encode the length as an uint32 value
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Len()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Len()))
 		case reflect.String:
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Len()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Len()))
 		case reflect.Uint8:
-			stream, pos = e.encodeUint8(stream, pos, uint8(reflect.ValueOf(data).Uint()))
+			stream, pos = e.encodeUint8(stream, pos, uint8(value.Uint()))
 		case reflect.Int8:
-			stream, pos = e.encodeUint8(stream, pos, uint8(reflect.ValueOf(data).Int()))
+			stream, pos = e.encodeUint8(stream, pos, uint8(value.Int()))
 		case reflect.Uint16:
-			stream, pos = e.encodeUint16(stream, pos, uint16(reflect.ValueOf(data).Uint()))
+			stream, pos = e.encodeUint16(stream, pos, uint16(value.Uint()))
 		case reflect.Int16:
-			stream, pos = e.encodeUint16(stream, pos, uint16(reflect.ValueOf(data).Int()))
+			stream, pos = e.encodeUint16(stream, pos, uint16(value.Int()))
 		case reflect.Uint32:
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Uint()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Uint()))
 		case reflect.Uint:
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Uint()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Uint()))
 		case reflect.Int32:
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Int()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Int()))
 		case reflect.Int:
-			stream, pos = e.encodeUint32(stream, pos, uint32(reflect.ValueOf(data).Int()))
+			stream, pos = e.encodeUint32(stream, pos, uint32(value.Int()))
 		case reflect.Uint64:
-			stream, pos = e.encodeUint64(stream, pos, reflect.ValueOf(data).Uint())
+			stream, pos = e.encodeUint64(stream, pos, value.Uint())
 		case reflect.Int64:
-			stream, pos = e.encodeUint64(stream, pos, uint64(reflect.ValueOf(data).Int()))
+			stream, pos = e.encodeUint64(stream, pos, uint64(value.Int()))
 		case reflect.Float32:
-			stream, pos = e.encodeFloat32(stream, pos, float32(reflect.ValueOf(data).Float()))
+			stream, pos = e.encodeFloat32(stream, pos, float32(value.Float()))
 		case reflect.Float64:
-			stream, pos = e.encodeFloat64(stream, pos, reflect.ValueOf(data).Float())
+			stream, pos = e.encodeFloat64(stream, pos, value.Float())
 		}
 
 		return nil
