@@ -26,9 +26,9 @@ type Encoder struct {
 }
 
 func NewEncoder() *Encoder {
-	d := new(Encoder)
-	d.order = binary.ByteOrder(binary.LittleEndian)
-	return d
+	e := new(Encoder)
+	e.order = binary.ByteOrder(binary.LittleEndian)
+	return e
 }
 
 func (e *Encoder) SetByteOrder(order ByteOrder) {
@@ -41,7 +41,8 @@ func (e *Encoder) SetByteOrder(order ByteOrder) {
 
 func (e Encoder) Encode(data interface{}) (error, []byte) {
 	// only allocate the amount of bytes which are necessary
-	err, length := countByteLen(data)
+	value := reflect.ValueOf(data)
+	err, length := countByteLen(value)
 	if err != nil {
 		return err, []byte{}
 	}
@@ -49,57 +50,86 @@ func (e Encoder) Encode(data interface{}) (error, []byte) {
 	stream := make([]byte, length)
 	pos := uint64(0)
 
-	// recursively go through all data types
-	err = recursivelyRunOver(reflect.ValueOf(data), func(value reflect.Value, dataType reflect.Kind) error {
-		switch dataType {
-		case reflect.Struct: // no encoding special encoding to do on start of structures
-			return nil
-		case reflect.Array: // on strings and arrays we need to encode the length as an uint32 value
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Len()))
-		case reflect.String:
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Len()))
-		case reflect.Uint8:
-			stream, pos = e.encodeUint8(stream, pos, uint8(value.Uint()))
-		case reflect.Int8:
-			stream, pos = e.encodeUint8(stream, pos, uint8(value.Int()))
-		case reflect.Uint16:
-			stream, pos = e.encodeUint16(stream, pos, uint16(value.Uint()))
-		case reflect.Int16:
-			stream, pos = e.encodeUint16(stream, pos, uint16(value.Int()))
-		case reflect.Uint32:
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Uint()))
-		case reflect.Uint:
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Uint()))
-		case reflect.Int32:
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Int()))
-		case reflect.Int:
-			stream, pos = e.encodeUint32(stream, pos, uint32(value.Int()))
-		case reflect.Uint64:
-			stream, pos = e.encodeUint64(stream, pos, value.Uint())
-		case reflect.Int64:
-			stream, pos = e.encodeUint64(stream, pos, uint64(value.Int()))
-		case reflect.Float32:
-			stream, pos = e.encodeFloat32(stream, pos, float32(value.Float()))
-		case reflect.Float64:
-			stream, pos = e.encodeFloat64(stream, pos, value.Float())
-		}
+	stream, pos = e.encode(value, stream, pos)
 
-		return nil
-	})
+	return nil, stream
+}
 
-	return err, stream
+func (e Encoder) encode(value reflect.Value, stream []byte, pos uint64) ([]byte, uint64) {
+	switch value.Kind() {
+	case reflect.Struct:
+		return e.encodeStruct(value, stream, pos)
+	case reflect.Array:
+		return e.encodeArray(value, stream, pos)
+	case reflect.Slice:
+		return e.encodeArray(value, stream, pos)
+	case reflect.String:
+		return e.encodeArray(value, stream, pos)
+	default:
+		return e.encodeSingle(value, stream, pos)
+	}
+}
+
+func (e Encoder) encodeStruct(structure reflect.Value, stream []byte, pos uint64) ([]byte, uint64) {
+	for i := 0; i < structure.NumField(); i++ {
+		field := structure.Field(i)
+		stream, pos = e.encode(field, stream, pos)
+	}
+
+	return stream, pos
+}
+
+func (e Encoder) encodeArray(array reflect.Value, stream []byte, pos uint64) ([]byte, uint64) {
+	stream, pos = e.encodeUint32(stream, pos, uint32(array.Len()))
+
+	for i := 0; i < array.Len(); i++ {
+		elem := array.Index(i)
+		stream, pos = e.encode(elem, stream, pos)
+	}
+
+	return stream, pos
+}
+
+func (e Encoder) encodeSingle(value reflect.Value, stream []byte, pos uint64) ([]byte, uint64) {
+	switch value.Kind() {
+	case reflect.Uint8:
+		return e.encodeUint8(stream, pos, uint8(value.Uint()))
+	case reflect.Int8:
+		return e.encodeUint8(stream, pos, uint8(value.Int()))
+	case reflect.Uint16:
+		return e.encodeUint16(stream, pos, uint16(value.Uint()))
+	case reflect.Int16:
+		return e.encodeUint16(stream, pos, uint16(value.Int()))
+	case reflect.Uint32:
+		return e.encodeUint32(stream, pos, uint32(value.Uint()))
+	case reflect.Uint:
+		return e.encodeUint32(stream, pos, uint32(value.Uint()))
+	case reflect.Int32:
+		return e.encodeUint32(stream, pos, uint32(value.Int()))
+	case reflect.Int:
+		return e.encodeUint32(stream, pos, uint32(value.Int()))
+	case reflect.Uint64:
+		return e.encodeUint64(stream, pos, value.Uint())
+	case reflect.Int64:
+		return e.encodeUint64(stream, pos, uint64(value.Int()))
+	case reflect.Float32:
+		return e.encodeFloat32(stream, pos, float32(value.Float()))
+	case reflect.Float64:
+		return e.encodeFloat64(stream, pos, value.Float())
+	default:
+		return stream, pos
+	}
 }
 
 func (e Encoder) encodeUint8(stream []byte, pos uint64, value uint8) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Uint8])
 	stream[pos] = value
-	pos += byteLen
+	pos += 1
 
 	return stream, pos
 }
 
 func (e Encoder) encodeUint16(stream []byte, pos uint64, value uint16) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Uint16])
+	byteLen := uint64(2)
 	e.order.PutUint16(stream[pos:pos+byteLen], value)
 	pos += byteLen
 
@@ -107,7 +137,7 @@ func (e Encoder) encodeUint16(stream []byte, pos uint64, value uint16) ([]byte, 
 }
 
 func (e Encoder) encodeUint32(stream []byte, pos uint64, value uint32) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Uint32])
+	byteLen := uint64(4)
 	e.order.PutUint32(stream[pos:pos+byteLen], value)
 	pos += byteLen
 
@@ -115,7 +145,7 @@ func (e Encoder) encodeUint32(stream []byte, pos uint64, value uint32) ([]byte, 
 }
 
 func (e Encoder) encodeUint64(stream []byte, pos uint64, value uint64) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Uint64])
+	byteLen := uint64(8)
 	e.order.PutUint64(stream[pos:pos+byteLen], value)
 	pos += byteLen
 
@@ -123,14 +153,14 @@ func (e Encoder) encodeUint64(stream []byte, pos uint64, value uint64) ([]byte, 
 }
 
 func (e Encoder) encodeFloat32(stream []byte, pos uint64, value float32) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Float32])
+	byteLen := uint64(4)
 	e.order.PutUint32(stream[pos:pos+byteLen], math.Float32bits(value))
 	pos += byteLen
 
 	return stream, pos
 }
 func (e Encoder) encodeFloat64(stream []byte, pos uint64, value float64) ([]byte, uint64) {
-	byteLen := uint64(BYTELEN_MAP[reflect.Float64])
+	byteLen := uint64(8)
 	e.order.PutUint64(stream[pos:pos+byteLen], math.Float64bits(value))
 	pos += byteLen
 

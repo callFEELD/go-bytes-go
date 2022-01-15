@@ -4,75 +4,72 @@ import (
 	"reflect"
 )
 
-func isSupported(data interface{}) bool {
-	for _, t := range SUPPORTED_TYPES {
-		if reflect.TypeOf(data).Kind() == t {
-			return true
-		}
+func countByteLen(data reflect.Value) (error, uint64) {
+	switch data.Kind() {
+	case reflect.Array:
+		return countByteLenArray(data)
+	case reflect.Slice:
+		return countByteLenArray(data)
+	case reflect.String:
+		return nil, Int32ByteLen + uint64(data.Len())*Int8ByteLen
+	case reflect.Struct:
+		return countByteLenStruct(data)
+	case reflect.Uint8:
+		return nil, Int8ByteLen
+	case reflect.Int8:
+		return nil, Int8ByteLen
+	case reflect.Uint16:
+		return nil, Int16ByteLen
+	case reflect.Int16:
+		return nil, Int16ByteLen
+	case reflect.Uint32:
+		return nil, Int32ByteLen
+	case reflect.Int32:
+		return nil, Int32ByteLen
+	case reflect.Int:
+		return nil, Int32ByteLen
+	case reflect.Uint:
+		return nil, Int32ByteLen
+	case reflect.Uint64:
+		return nil, Int64ByteLen
+	case reflect.Int64:
+		return nil, Int64ByteLen
+	case reflect.Float32:
+		return nil, Real32ByteLen
+	case reflect.Float64:
+		return nil, Real64ByteLen
+	default:
+		return UnsupportedDataTypeError, 0
 	}
-
-	return false
 }
 
-func countByteLen(data interface{}) (error, uint64) {
-	var length uint64 = 0
-
-	// recursively go through all data types
-	err := recursivelyRunOver(reflect.ValueOf(data), func(data reflect.Value, dataType reflect.Kind) error {
-		byteLen, exists := BYTELEN_MAP[dataType]
-		if !exists {
-			return ShouldNotHappenError
-		}
-		length += uint64(byteLen)
-
-		return nil
-	})
-
-	return err, length
-}
-
-func recursivelyRunOver(value reflect.Value, handle func(value reflect.Value, dataType reflect.Kind) error) error {
+func countByteLenArray(data reflect.Value) (error, uint64) {
 	var err error = nil
+	var elemByteLen uint64 = 0
 
-	dataType := value.Kind()
-
-	if !isSupported(dataType) {
-		return UnsupportedDataTypeError
-	}
-
-	if dataType == reflect.Struct {
-		err = recursivelyRunOverStructure(value, handle)
-	} else if dataType == reflect.Array ||
-		dataType == reflect.Slice ||
-		dataType == reflect.String {
-		err = recursivelyRunOverArray(value, handle)
-	} else { // normal data type to handle
-		err = handle(value, dataType)
-	}
-
-	return err
-}
-
-func recursivelyRunOverStructure(structure reflect.Value, handle func(value reflect.Value, dataType reflect.Kind) error) error {
-	for i := 0; i < structure.NumField(); i++ {
-		field := structure.Field(i)
-		err := recursivelyRunOver(field, handle)
+	arrayLen := uint64(data.Len())
+	if arrayLen > 0 {
+		err, elemByteLen = countByteLen(data.Index(0))
 		if err != nil {
-			return err
+			return nil, 0
 		}
 	}
 
-	return nil
+	return nil, Int32ByteLen + arrayLen*elemByteLen
 }
 
-func recursivelyRunOverArray(array reflect.Value, handle func(value reflect.Value, dataType reflect.Kind) error) error {
-	for i := 0; i < array.Len(); i++ {
-		elem := array.Index(i)
-		err := recursivelyRunOver(elem, handle)
+func countByteLenStruct(data reflect.Value) (error, uint64) {
+	var err error = nil
+	var byteLen uint64 = 0
+	var elemByteLen uint64 = 0
+
+	for i := 0; i < data.NumField(); i++ {
+		err, elemByteLen = countByteLen(data.Field(i))
 		if err != nil {
-			return err
+			return nil, 0
 		}
+		byteLen += elemByteLen
 	}
 
-	return nil
+	return nil, byteLen
 }
