@@ -26,7 +26,7 @@ type Hotel struct {
 	Guests  []Person
 }
 
-func BenchmarkEncode(b *testing.B) {
+func BenchmarkSmallEncode(b *testing.B) {
 	e := gobytesgo.NewEncoder()
 	hotel := Hotel{}
 
@@ -43,7 +43,7 @@ func BenchmarkEncode(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeJSON(b *testing.B) {
+func BenchmarkSmallEncodeJSON(b *testing.B) {
 	hotel := Hotel{}
 
 	alex := Person{Name: "Alex", Age: 32, Gender: Female}
@@ -59,7 +59,7 @@ func BenchmarkEncodeJSON(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeGOB(b *testing.B) {
+func BenchmarkSmallEncodeGOB(b *testing.B) {
 	var buff bytes.Buffer
 	e := gob.NewEncoder(&buff)
 	hotel := Hotel{}
@@ -71,6 +71,57 @@ func BenchmarkEncodeGOB(b *testing.B) {
 	hotel.Manager = alex
 	hotel.Guests = append(hotel.Guests, thomas)
 	hotel.Guests = append(hotel.Guests, dan)
+
+	for i := 0; i < b.N; i++ {
+		e.Encode(hotel)
+	}
+}
+
+func BenchmarkBigEncode(b *testing.B) {
+	e := gobytesgo.NewEncoder()
+	hotel := Hotel{}
+
+	alex := Person{Name: "Alex", Age: 32, Gender: Female}
+	thomas := Person{Name: "Thomas", Age: 40, Gender: Male}
+
+	hotel.Manager = alex
+	for i := 0; i < 1000; i++ {
+		hotel.Guests = append(hotel.Guests, thomas)
+	}
+
+	for i := 0; i < b.N; i++ {
+		e.Encode(hotel)
+	}
+}
+
+func BenchmarkBigEncodeJSON(b *testing.B) {
+	hotel := Hotel{}
+
+	alex := Person{Name: "Alex", Age: 32, Gender: Female}
+	thomas := Person{Name: "Thomas", Age: 40, Gender: Male}
+
+	hotel.Manager = alex
+	for i := 0; i < 1000; i++ {
+		hotel.Guests = append(hotel.Guests, thomas)
+	}
+
+	for i := 0; i < b.N; i++ {
+		json.Marshal(hotel)
+	}
+}
+
+func BenchmarkBigEncodeGOB(b *testing.B) {
+	var buff bytes.Buffer
+	e := gob.NewEncoder(&buff)
+	hotel := Hotel{}
+
+	alex := Person{Name: "Alex", Age: 32, Gender: Female}
+	thomas := Person{Name: "Thomas", Age: 40, Gender: Male}
+
+	hotel.Manager = alex
+	for i := 0; i < 1000; i++ {
+		hotel.Guests = append(hotel.Guests, thomas)
+	}
 
 	for i := 0; i < b.N; i++ {
 		e.Encode(hotel)
