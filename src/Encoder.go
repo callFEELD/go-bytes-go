@@ -64,7 +64,7 @@ func (e Encoder) encode(value reflect.Value, stream []byte, pos uint64) ([]byte,
 	case reflect.Slice:
 		return e.encodeArray(value, stream, pos)
 	case reflect.String:
-		return e.encodeArray(value, stream, pos)
+		return e.encodeString(stream, pos, value.String())
 	default:
 		return e.encodeSingle(value, stream, pos)
 	}
@@ -119,6 +119,13 @@ func (e Encoder) encodeSingle(value reflect.Value, stream []byte, pos uint64) ([
 	default:
 		return stream, pos
 	}
+}
+
+func (e Encoder) encodeString(stream []byte, pos uint64, str string) ([]byte, uint64) {
+	copy(stream[pos:], str)
+	pos += uint64(len(str))
+
+	return stream, pos
 }
 
 func (e Encoder) encodeUint8(stream []byte, pos uint64, value uint8) ([]byte, uint64) {
